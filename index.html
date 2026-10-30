@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>カスタムカレンダーメーカー</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    :root {
+      --primary-color: #4a90e2;
+      --bg-color: #f5f7fa;
+      --text-color: #333333;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #ffffff;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      color: #2c3e50;
+    }
+
+    .main-container {
+      display: flex;
+      flex: 1;
+      gap: 2rem;
+      padding: 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .controls-panel {
+      flex: 1;
+      background: #ffffff;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      max-width: 380px;
+    }
+
+    .preview-panel {
+      flex: 2;
+      background: #ffffff;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: auto;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .form-group label {
+      font-weight: bold;
+      font-size: 0.9rem;
+      color: #555;
+    }
+
+    input, select, textarea {
+      padding: 0.6rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+
+    .color-picker-group {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .color-picker-group .form-group {
+      flex: 1;
+    }
+
+    .btn {
+      padding: 0.8rem 1.5rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    .btn-download {
+      background-color: #27ae60;
+      color: white;
+      margin-top: 1rem;
+    }
+
+    .btn-download:hover {
+      background-color: #219653;
+    }
+
+    /* カレンダー プレビュー スタイル */
+    #calendar-container {
+      width: 100%;
+      max-width: 700px;
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+
+    .calendar-header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .calendar-title {
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+
+    .calendar-subtitle {
+      font-size: 1rem;
+      color: #666;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      border-top: 2px solid #333;
+      border-left: 1px solid #ddd;
+    }
+
+    .day-header {
+      padding: 0.5rem;
+      text-align: center;
+      font-weight: bold;
+      background-color: #f8f9fa;
+      border-right: 1px solid #ddd;
+      border-bottom: 1px solid #ddd;
+      font-size: 0.85rem;
+    }
+
+    .day-header.sunday { color: #e74c3c; }
+    .day-header.saturday { color: #3498db; }
+
+    .day-cell {
+      min-height: 80px;
+      padding: 0.4rem;
+      border-right: 1px solid #ddd;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .day-cell.other-month {
+      background-color: #fafafa;
+      opacity: 0.4;
+    }
+
+    .day-number {
+      font-weight: bold;
+      font-size: 0.9rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .day-cell.sunday .day-number { color: #e74c3c; }
+    .day-cell.saturday .day-number { color: #3498db; }
+
+    .day-memo {
+      font-size: 0.75rem;
+      color: #555;
+      word-break: break-all;
+      margin-top: 2px;
+      line-height: 1.2;
+    }
+
+    @media (max-width: 900px) {
+      .main-container {
+        flex-direction: column;
+      }
+      .controls-panel {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>📅 My カレンダーメーカー</h1>
+  </header>
+
+  <div class="main-container">
+    <!-- 設定パネル -->
+    <div class="controls-panel">
+      <h2>カスタマイズ設定</h2>
+
+      <div class="form-group">
+        <label for="year-select">年</label>
+        <select id="year-select"></select>
+      </div>
+
+      <div class="form-group">
+        <label for="month-select">月</label>
+        <select id="month-select"></select>
+      </div>
+
+      <div class="form-group">
+        <label for="calendar-title-input">タイトル・サブタイトル</label>
+        <input type="text" id="calendar-title-input" placeholder="カレンダーのタイトル (例: My Goal 2026)">
+        <input type="text" id="calendar-subtitle-input" placeholder="サブタイトル (例: 今月の目標: 毎日勉強)" style="margin-top: 0.5rem;">
+      </div>
+
+      <div class="color-picker-group">
+        <div class="form-group">
+          <label for="header-color">ヘッダー色</label>
+          <input type="color" id="header-color" value="#4a90e2">
+        </div>
+        <div class="form-group">
+          <label for="text-color">文字色</label>
+          <input type="color" id="text-color" value="#333333">
+        </div>
+      </div>
+
+      <hr style="border: none; border-top: 1px solid #eee;">
+
+      <h3>メモ追加</h3>
+      <div class="form-group">
+        <label for="memo-date">日付</label>
+        <input type="date" id="memo-date">
+      </div>
+      <div class="form-group">
+        <label for="memo-text">予定・メモ</label>
+        <input type="text" id="memo-text" placeholder="例: 誕生日パーティ">
+      </div>
+      <button class="btn btn-primary" id="add-memo-btn">メモを追加</button>
+
+      <hr style="border: none; border-top: 1px solid #eee;">
+
+      <button class="btn btn-download" id="download-pdf-btn">📄 PDFで保存</button>
+    </div>
+
+    <!-- プレビューパネル -->
+    <div class="preview-panel">
+      <h2>リアルタイムプレビュー</h2>
+      <p style="font-size: 0.85rem; color: #777; margin-bottom: 1rem;">設定を変更すると即座に反映されます</p>
+
+      <div id="calendar-container">
+        <div class="calendar-header">
+          <div class="calendar-title" id="display-title">2026年 10月</div>
+          <div class="calendar-subtitle" id="display-subtitle"></div>
+        </div>
+
+        <div class="calendar-grid" id="calendar-grid">
+          <!-- 曜日のヘッダー -->
+          <div class="day-header sunday">日</div>
+          <div class="day-header">月</div>
+          <div class="day-header">火</div>
+          <div class="day-header">水</div>
+          <div class="day-header">木</div>
+          <div class="day-header">金</div>
+          <div class="day-header saturday">土</div>
+
+          <!-- 日付セルはJavaScriptで動的生成 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 状態管理
+    const currentDate = new Date();
+    let currentYear = currentDate.getFullYear();
+    let currentMonth = currentDate.getMonth() + 1; // 1-12
+    const memos = {}; // {'YYYY-MM-DD': ['メモ1', 'メモ2']}
+
+    // DOM要素
+    const yearSelect = document.getElementById('year-select');
+    const monthSelect = document.getElementById('month-select');
+    const titleInput = document.getElementById('calendar-title-input');
+    const subtitleInput = document.getElementById('calendar-subtitle-input');
+    const headerColorPicker = document.getElementById('header-color');
+    const textColorPicker = document.getElementById('text-color');
+    const memoDateInput = document.getElementById('memo-date');
+    const memoTextInput = document.getElementById('memo-text');
+    const addMemoBtn = document.getElementById('add-memo-btn');
+    const downloadPdfBtn = document.getElementById('download-pdf-btn');
+
+    const displayTitle = document.getElementById('display-title');
+    const displaySubtitle = document.getElementById('display-subtitle');
+    const calendarGrid = document.getElementById('calendar-grid');
+
+    // 初期化
+    function init() {
+      // 年の選択肢生成 (前後5年)
+      for (let y = currentYear - 2; y <= currentYear + 5; y++) {
+        const option = document.createElement('option');
+        option.value = y;
+        option.textContent = y + '年';
+        if (y === currentYear) option.selected = true;
+        yearSelect.appendChild(option);
+      }
+
+      // 月の選択肢生成
+      for (let m = 1; m <= 12; m++) {
+        const option = document.createElement('option');
+        option.value = m;
+        option.textContent = m + '月';
+        if (m === currentMonth) option.selected = true;
+        monthSelect.appendChild(option);
+      }
+
+      // イベントリスナー設定
+      yearSelect.addEventListener('change', (e) => {
+        currentYear = parseInt(e.target.value);
+        renderCalendar();
+      });
+
+      monthSelect.addEventListener('change', (e) => {
+        currentMonth = parseInt(e.target.value);
+        renderCalendar();
+      });
+
+      titleInput.addEventListener('input', updateHeader);
+      subtitleInput.addEventListener('input', updateHeader);
+
+      headerColorPicker.addEventListener('input', (e) => {
+        displayTitle.style.color = e.target.value;
+      });
+
+      textColorPicker.addEventListener('input', (e) => {
+        document.getElementById('calendar-container').style.color = e.target.value;
+      });
+
+      addMemoBtn.addEventListener('click', addMemo);
+      downloadPdfBtn.addEventListener('click', exportToPDF);
+
+      renderCalendar();
+    }
+
+    // タイトル更新
+    function updateHeader() {
+      const titleVal = titleInput.value.trim();
+      const subtitleVal = subtitleInput.value.trim();
+
+      displayTitle.textContent = titleVal || `${currentYear}年 ${currentMonth}月`;
+      displaySubtitle.textContent = subtitleVal;
+    }
+
+    // メモ追加
+    function addMemo() {
+      const dateVal = memoDateInput.value;
+      const textVal = memoTextInput.value.trim();
+
+      if (!dateVal || !textVal) {
+        alert('日付とメモの内容を入力してください。');
+        return;
+      }
+
+      if (!memos[dateVal]) {
+        memos[dateVal] = [];
+      }
+      memos[dateVal].push(textVal);
+
+      memoTextInput.value = '';
+      renderCalendar();
+    }
+
+    // カレンダー再描画
+    function renderCalendar() {
+      updateHeader();
+
+      // 日付セルのクリーンアップ (曜日ヘッダー以外を削除)
+      const dayCells = calendarGrid.querySelectorAll('.day-cell');
+      dayCells.forEach(cell => cell.remove());
+
+      // 該当月の日数と初日の曜日を取得
+      const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay(); // 0:日, 1:月...
+      const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+      const prevMonthDays = new Date(currentYear, currentMonth - 1, 0).getDate();
+
+      // 前月の日付セル（マス目を埋めるため）
+      for (let i = firstDay - 1; i >= 0; i--) {
+        const cell = document.createElement('div');
+        cell.className = 'day-cell other-month';
+        cell.innerHTML = `<span class="day-number">${prevMonthDays - i}</span>`;
+        calendarGrid.appendChild(cell);
+      }
+
+      // 当月の日付セル
+      for (let day = 1; day <= daysInMonth; day++) {
+        const cell = document.createElement('div');
+        const dateObj = new Date(currentYear, currentMonth - 1, day);
+        const dayOfWeek = dateObj.getDay();
+
+        let dayClass = 'day-cell';
+        if (dayOfWeek === 0) dayClass += ' sunday';
+        if (dayOfWeek === 6) dayClass += ' saturday';
+        cell.className = dayClass;
+
+        // 日付フォーマット YYYY-MM-DD
+        const formattedDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+        let memoHtml = '';
+        if (memos[formattedDate]) {
+          memoHtml = memos[formattedDate].map(m => `<div class="day-memo">• ${escapeHtml(m)}</div>`).join('');
+        }
+
+        cell.innerHTML = `
+          <span class="day-number">${day}</span>
+          ${memoHtml}
+        `;
+        calendarGrid.appendChild(cell);
+      }
+
+      // 残りのマス目を来月の日付で埋める (7x5または7x6のグリッド)
+      const totalCells = firstDay + daysInMonth;
+      const nextDays = totalCells > 35 ? 42 - totalCells : 35 - totalCells;
+      for (let i = 1; i <= nextDays; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'day-cell other-month';
+        cell.innerHTML = `<span class="day-number">${i}</span>`;
+        calendarGrid.appendChild(cell);
+      }
+    }
+
+    // HTMLエスケープヘルパー
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+      });
+    }
+
+    // PDF出力機能
+    function exportToPDF() {
+      const element = document.getElementById('calendar-container');
+      const opt = {
+        margin:       10,
+        filename:     `calendar_${currentYear}_${currentMonth}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+      };
+
+      html2pdf().set(opt).from(element).save();
+    }
+
+    // 起動
+    init();
+  </script>
+</body>
+</html>
