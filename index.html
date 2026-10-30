@@ -5,25 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>カスタムカレンダーメーカー</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Google Fontsの読み込み -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru:wght@400;500;700&family=M+PLUS+Rounded+1c:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&family=Yuji+Syuku&display=swap" rel="stylesheet">
+
   <style>
     :root {
       --primary-color: #4a90e2;
-      --bg-color: #f5f7fa;
+      --bg-color: #f0f2f5;
       --text-color: #333333;
       --cal-bg: #ffffff;
       --border-color: #ddd;
+      --font-family: 'Noto Sans JP', sans-serif;
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif;
     }
 
     body {
       background-color: var(--bg-color);
       color: var(--text-color);
+      font-family: var(--font-family);
       display: flex;
       flex-direction: column;
       min-height: 100vh;
@@ -31,30 +37,34 @@
 
     header {
       background: #ffffff;
-      padding: 1rem 2rem;
+      padding: 0.8rem 1.5rem;
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      z-index: 10;
     }
 
     header h1 {
-      font-size: 1.5rem;
+      font-size: 1.3rem;
       color: #2c3e50;
     }
 
     .main-container {
       display: flex;
       flex: 1;
-      gap: 2rem;
-      padding: 2rem;
-      max-width: 1400px;
-      margin: 0 auto;
+      gap: 1.5rem;
+      padding: 1.5rem;
       width: 100%;
+      max-width: 1800px;
+      margin: 0 auto;
+      height: calc(100vh - 60px);
     }
 
+    /* 設定パネル (左側) */
     .controls-panel {
-      flex: 1;
+      width: 380px;
+      flex-shrink: 0;
       background: #ffffff;
       padding: 1.5rem;
       border-radius: 12px;
@@ -62,56 +72,70 @@
       display: flex;
       flex-direction: column;
       gap: 1.2rem;
-      max-width: 400px;
-      max-height: 85vh;
       overflow-y: auto;
     }
 
+    /* プレビューパネル (右側：最大表示) */
     .preview-panel {
-      flex: 2;
-      background: #ffffff;
-      padding: 2rem;
+      flex: 1;
+      background: #e9ecef;
+      padding: 1.5rem;
       border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.08);
       display: flex;
       flex-direction: column;
       align-items: center;
-      overflow-x: auto;
+      justify-content: flex-start;
+      overflow: auto;
     }
 
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.4rem;
     }
 
     .form-group label {
       font-weight: bold;
-      font-size: 0.9rem;
-      color: #555;
+      font-size: 0.85rem;
+      color: #444;
     }
 
-    input, select, textarea {
-      padding: 0.6rem;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 0.95rem;
-    }
-
-    .color-picker-group {
+    .form-row {
       display: flex;
-      gap: 1rem;
+      gap: 0.8rem;
     }
 
-    .color-picker-group .form-group {
+    .form-row .form-group {
       flex: 1;
     }
 
+    input[type="text"], input[type="date"], select {
+      padding: 0.55rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      width: 100%;
+    }
+
+    input[type="color"] {
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      height: 38px;
+      width: 100%;
+      cursor: pointer;
+      background: none;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
     .btn {
-      padding: 0.8rem 1.5rem;
+      padding: 0.75rem 1.2rem;
       border: none;
       border-radius: 6px;
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: bold;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -133,72 +157,76 @@
     .btn-download {
       background-color: #27ae60;
       color: white;
-      margin-top: 1rem;
+      margin-top: 0.5rem;
+      font-size: 1rem;
     }
 
     .btn-download:hover {
       background-color: #219653;
     }
 
-    /* カレンダー プレビュー スタイル (ベース) */
+    /* カレンダー本体 (A4横サイズアスペクト比基準) */
     #calendar-container {
       width: 100%;
-      max-width: 750px;
+      max-width: 1100px;
+      aspect-ratio: 1.414 / 1; /* A4横比率 */
       background: var(--cal-bg);
-      padding: 2rem;
+      padding: 2.5rem;
       border-radius: 8px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.08);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
       position: relative;
-      background-size: cover;
-      background-position: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      font-family: var(--font-family);
     }
 
-    /* 背景画像のオーバーレイ調整（画像が見やすいように半透明レイヤーを敷く） */
-    #calendar-container::before {
-      content: "";
+    /* 背景画像用レイヤー */
+    .bg-image-layer {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(255, 255, 255, 0.85); /* 背景画像がある時は薄く白を敷く */
+      background-size: cover;
+      background-position: center;
+      opacity: 0.3; /* 初期透明度 */
       z-index: 1;
       pointer-events: none;
-      display: none;
-    }
-    #calendar-container.has-bg::before {
-      display: block;
     }
 
     .calendar-inner {
       position: relative;
       z-index: 2;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
     }
 
     .calendar-header {
       text-align: center;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1rem;
     }
 
     .calendar-title {
-      font-size: 2rem;
+      font-size: 2.4rem;
       font-weight: bold;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.2rem;
+      transition: color 0.2s;
     }
 
     .calendar-subtitle {
-      font-size: 1rem;
-      color: #666;
+      font-size: 1.1rem;
+      opacity: 0.8;
     }
 
-    /* テンプレートごとのスタイル切り替え用クラス */
-    /* 1. モダン (デフォルト) */
+    /* テンプレートテーマ設定 */
     .theme-modern .calendar-grid {
       border-top: 2px solid #333;
       border-left: 1px solid var(--border-color);
     }
     .theme-modern .day-header {
-      background-color: #f8f9fa;
+      background-color: rgba(248, 249, 250, 0.85);
     }
 
-    /* 2. パステル */
     .theme-pastel {
       --cal-bg: #fffbf5;
       --border-color: #fce4d6;
@@ -209,37 +237,35 @@
       overflow: hidden;
     }
     .theme-pastel .day-header {
-      background-color: #ffe4e1;
+      background-color: rgba(255, 228, 225, 0.85);
       color: #d87093;
     }
     .theme-pastel .day-cell {
-      background-color: #fffaf0;
+      background-color: rgba(255, 250, 240, 0.7);
     }
 
-    /* 3. ダーク */
     .theme-dark {
       --cal-bg: #1e1e1e;
       --text-color: #f0f0f0;
       --border-color: #444;
     }
-    .theme-dark .calendar-title { color: #ffffff; }
-    .theme-dark .calendar-subtitle { color: #aaaaaa; }
     .theme-dark .calendar-grid {
       border-top: 2px solid #666;
       border-left: 1px solid #444;
     }
     .theme-dark .day-header {
-      background-color: #2d2d2d;
+      background-color: rgba(45, 45, 45, 0.85);
       color: #ddd;
     }
     .theme-dark .day-cell.other-month {
-      background-color: #161616;
-      opacity: 0.3;
+      background-color: rgba(22, 22, 22, 0.5);
+      opacity: 0.4;
     }
 
     .calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
+      flex: 1;
     }
 
     .day-header {
@@ -248,14 +274,13 @@
       font-weight: bold;
       border-right: 1px solid var(--border-color);
       border-bottom: 1px solid var(--border-color);
-      font-size: 0.85rem;
+      font-size: 0.95rem;
     }
 
     .day-header.sunday { color: #e74c3c; }
     .day-header.saturday { color: #3498db; }
 
     .day-cell {
-      min-height: 85px;
       padding: 0.4rem;
       border-right: 1px solid var(--border-color);
       border-bottom: 1px solid var(--border-color);
@@ -266,12 +291,12 @@
 
     .day-cell.other-month {
       background-color: rgba(0,0,0,0.02);
-      opacity: 0.4;
+      opacity: 0.3;
     }
 
     .day-number {
       font-weight: bold;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
       margin-bottom: 0.2rem;
     }
 
@@ -285,22 +310,26 @@
       line-height: 1.2;
     }
 
-    /* アップロード画像プレビューエリア */
     .uploaded-img-preview {
-      margin-top: 10px;
+      margin-top: 6px;
       max-width: 100%;
-      max-height: 120px;
+      max-height: 80px;
       border-radius: 4px;
       display: none;
+      object-fit: contain;
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 1024px) {
       .main-container {
         flex-direction: column;
+        height: auto;
       }
       .controls-panel {
-        max-width: 100%;
-        max-height: none;
+        width: 100%;
+      }
+      #calendar-container {
+        aspect-ratio: auto;
+        min-height: 500px;
       }
     }
   </style>
@@ -312,7 +341,7 @@
   </header>
 
   <div class="main-container">
-    <!-- 設定パネル -->
+    <!-- 設定パネル (左) -->
     <div class="controls-panel">
       <h2>カスタマイズ設定</h2>
 
@@ -325,31 +354,61 @@
         </select>
       </div>
 
+      <!-- フォント & カラー設定 -->
       <div class="form-group">
-        <label for="bg-image-input">背景画像をアップロード</label>
+        <label for="font-select">フォント（字体）</label>
+        <select id="font-select">
+          <option value="'Noto Sans JP', sans-serif">標準 (ゴシック体)</option>
+          <option value="'M PLUS Rounded 1c', sans-serif">丸ゴシック (ポップ)</option>
+          <option value="'Noto Serif JP', serif">明朝体 (エレガント)</option>
+          <option value="'Kiwi Maru', serif">キウイ丸 (手書き風)</option>
+          <option value="'Yuji Syuku', serif">祐司 (和風書体)</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="title-color">タイトル文字色</label>
+          <input type="color" id="title-color" value="#333333">
+        </div>
+        <div class="form-group">
+          <label for="body-color">本文文字色</label>
+          <input type="color" id="body-color" value="#333333">
+        </div>
+      </div>
+
+      <!-- 画像 & 背景透明度設定 -->
+      <div class="form-group">
+        <label for="bg-image-input">背景画像</label>
         <input type="file" id="bg-image-input" accept="image/*">
-        <button class="btn" style="background:#e0e0e0; color:#333; font-size:0.8rem; padding:0.4rem; margin-top:4px;" id="remove-bg-btn">背景画像をリセット</button>
+        <button class="btn" style="background:#e0e0e0; color:#333; font-size:0.75rem; padding:0.3rem; margin-top:4px;" id="remove-bg-btn">背景画像を削除</button>
       </div>
 
       <div class="form-group">
-        <label for="logo-image-input">カレンダー内に画像（ロゴ等）を追加</label>
+        <label for="bg-opacity">背景画像の不透明度 (透かし)</label>
+        <input type="range" id="bg-opacity" min="0.05" max="1" step="0.05" value="0.3">
+      </div>
+
+      <div class="form-group">
+        <label for="logo-image-input">ワンポイント画像/ロゴ</label>
         <input type="file" id="logo-image-input" accept="image/*">
         <img id="logo-preview" class="uploaded-img-preview" alt="ロゴプレビュー">
-        <button class="btn" style="background:#e0e0e0; color:#333; font-size:0.8rem; padding:0.4rem; margin-top:4px;" id="remove-logo-btn">画像を削除</button>
+        <button class="btn" style="background:#e0e0e0; color:#333; font-size:0.75rem; padding:0.3rem; margin-top:4px;" id="remove-logo-btn">画像を削除</button>
       </div>
 
+      <!-- カレンダー年月 & タイトル -->
       <div class="form-group">
-        <label for="year-select">年 / 月</label>
-        <div style="display: flex; gap: 0.5rem;">
-          <select id="year-select" style="flex:1;"></select>
-          <select id="month-select" style="flex:1;"></select>
+        <label>年月選択</label>
+        <div class="form-row">
+          <select id="year-select"></select>
+          <select id="month-select"></select>
         </div>
       </div>
 
       <div class="form-group">
         <label for="calendar-title-input">タイトル・サブタイトル</label>
-        <input type="text" id="calendar-title-input" placeholder="カレンダーのタイトル">
-        <input type="text" id="calendar-subtitle-input" placeholder="サブタイトル (例: 今月の目標)" style="margin-top: 0.5rem;">
+        <input type="text" id="calendar-title-input" placeholder="タイトル (例: 2026年 10月)">
+        <input type="text" id="calendar-subtitle-input" placeholder="サブタイトル (例: 今月の目標)" style="margin-top: 0.3rem;">
       </div>
 
       <hr style="border: none; border-top: 1px solid #eee;">
@@ -370,15 +429,13 @@
       <button class="btn btn-download" id="download-pdf-btn">📄 PDFで保存</button>
     </div>
 
-    <!-- プレビューパネル -->
+    <!-- プレビューパネル (右) -->
     <div class="preview-panel">
-      <h2>リアルタイムプレビュー</h2>
-      <p style="font-size: 0.85rem; color: #777; margin-bottom: 1rem;">設定や画像はリアルタイムに反映されます</p>
-
       <div id="calendar-container" class="theme-modern">
+        <div class="bg-image-layer" id="bg-image-layer"></div>
         <div class="calendar-inner">
           <div style="text-align: center;">
-            <img id="displayed-logo" class="uploaded-img-preview" style="margin: 0 auto 10px auto;" alt="ロゴ">
+            <img id="displayed-logo" class="uploaded-img-preview" style="margin: 0 auto 10px auto; max-height: 70px;" alt="ロゴ">
           </div>
           <div class="calendar-header">
             <div class="calendar-title" id="display-title">2026年 10月</div>
@@ -408,6 +465,10 @@
     const yearSelect = document.getElementById('year-select');
     const monthSelect = document.getElementById('month-select');
     const templateSelect = document.getElementById('template-select');
+    const fontSelect = document.getElementById('font-select');
+    const titleColorInput = document.getElementById('title-color');
+    const bodyColorInput = document.getElementById('body-color');
+
     const titleInput = document.getElementById('calendar-title-input');
     const subtitleInput = document.getElementById('calendar-subtitle-input');
     const memoDateInput = document.getElementById('memo-date');
@@ -419,9 +480,10 @@
     const displaySubtitle = document.getElementById('display-subtitle');
     const calendarGrid = document.getElementById('calendar-grid');
     const calendarContainer = document.getElementById('calendar-container');
+    const bgImageLayer = document.getElementById('bg-image-layer');
 
-    // 画像アップロード関連要素
     const bgImageInput = document.getElementById('bg-image-input');
+    const bgOpacityInput = document.getElementById('bg-opacity');
     const removeBgBtn = document.getElementById('remove-bg-btn');
     const logoImageInput = document.getElementById('logo-image-input');
     const logoPreview = document.getElementById('logo-preview');
@@ -445,40 +507,52 @@
         monthSelect.appendChild(option);
       }
 
-      // イベント設定
+      // イベントリスナー
       yearSelect.addEventListener('change', (e) => { currentYear = parseInt(e.target.value); renderCalendar(); });
       monthSelect.addEventListener('change', (e) => { currentMonth = parseInt(e.target.value); renderCalendar(); });
       templateSelect.addEventListener('change', (e) => {
-        calendarContainer.className = ''; // クラスリセット
+        calendarContainer.className = ''; 
         calendarContainer.classList.add(e.target.value);
-        if (calendarContainer.style.backgroundImage) {
-          calendarContainer.classList.add('has-bg');
-        }
+      });
+
+      // フォント・色リアルタイム反映
+      fontSelect.addEventListener('change', (e) => {
+        calendarContainer.style.fontFamily = e.target.value;
+      });
+
+      titleColorInput.addEventListener('input', (e) => {
+        displayTitle.style.color = e.target.value;
+      });
+
+      bodyColorInput.addEventListener('input', (e) => {
+        calendarContainer.style.color = e.target.value;
       });
 
       titleInput.addEventListener('input', updateHeader);
       subtitleInput.addEventListener('input', updateHeader);
 
-      // 背景画像アップロード処理
+      // 背景画像 & 透明度設定
       bgImageInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
           const reader = new FileReader();
           reader.onload = function(event) {
-            calendarContainer.style.backgroundImage = `url('${event.target.result}')`;
-            calendarContainer.classList.add('has-bg');
+            bgImageLayer.style.backgroundImage = `url('${event.target.result}')`;
           }
           reader.readAsDataURL(file);
         }
       });
 
+      bgOpacityInput.addEventListener('input', (e) => {
+        bgImageLayer.style.opacity = e.target.value;
+      });
+
       removeBgBtn.addEventListener('click', () => {
-        calendarContainer.style.backgroundImage = 'none';
-        calendarContainer.classList.remove('has-bg');
+        bgImageLayer.style.backgroundImage = 'none';
         bgImageInput.value = '';
       });
 
-      // ロゴ・カレンダー内画像アップロード処理
+      // ロゴ画像
       logoImageInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -537,7 +611,6 @@
       const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
       const prevMonthDays = new Date(currentYear, currentMonth - 1, 0).getDate();
 
-      // 前月分
       for (let i = firstDay - 1; i >= 0; i--) {
         const cell = document.createElement('div');
         cell.className = 'day-cell other-month';
@@ -545,7 +618,6 @@
         calendarGrid.appendChild(cell);
       }
 
-      // 当月分
       for (let day = 1; day <= daysInMonth; day++) {
         const cell = document.createElement('div');
         const dateObj = new Date(currentYear, currentMonth - 1, day);
@@ -566,7 +638,6 @@
         calendarGrid.appendChild(cell);
       }
 
-      // 翌月分
       const totalCells = firstDay + daysInMonth;
       const nextDays = totalCells > 35 ? 42 - totalCells : 35 - totalCells;
       for (let i = 1; i <= nextDays; i++) {
