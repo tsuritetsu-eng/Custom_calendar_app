@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>カスタムカレンダーメーカー</title>
+  <!-- PDF出力用ライブラリ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <!-- Google Fontsの読み込み -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,6 +34,7 @@
       display: flex;
       flex-direction: column;
       min-height: 100vh;
+      overflow-x: hidden;
     }
 
     header {
@@ -58,10 +60,11 @@
       width: 100%;
       max-width: 1800px;
       margin: 0 auto;
-      height: calc(100vh - 60px);
+      position: relative;
+      transition: all 0.3s ease;
     }
 
-    /* 設定パネル (左側) */
+    /* コントロールパネル（折りたたみ対応） */
     .controls-panel {
       width: 380px;
       flex-shrink: 0;
@@ -73,9 +76,43 @@
       flex-direction: column;
       gap: 1.2rem;
       overflow-y: auto;
+      max-height: calc(100vh - 100px);
+      transition: all 0.3s ease;
+      position: relative;
+      z-index: 5;
     }
 
-    /* プレビューパネル (右側：最大表示) */
+    /* 折りたたまれた状態のコントロールパネル */
+    .controls-panel.collapsed {
+      margin-left: -400px;
+      opacity: 0;
+      pointer-events: none;
+      width: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    /* トグルボタン（設定の表示・非表示切り替え） */
+    .toggle-panel-btn {
+      background: #ffffff;
+      border: 1px solid #ccc;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 0.85rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background 0.2s;
+    }
+
+    .toggle-panel-btn:hover {
+      background: #f0f0f0;
+    }
+
+    /* プレビューパネル */
     .preview-panel {
       flex: 1;
       background: #e9ecef;
@@ -87,6 +124,17 @@
       align-items: center;
       justify-content: flex-start;
       overflow: auto;
+      transition: all 0.3s ease;
+      width: 100%;
+    }
+
+    .preview-actions {
+      width: 100%;
+      max-width: 1100px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
     }
 
     .form-group {
@@ -165,11 +213,49 @@
       background-color: #219653;
     }
 
+    .btn-fullscreen {
+      background-color: #8e44ad;
+      color: white;
+    }
+
+    .btn-fullscreen:hover {
+      background-color: #732d91;
+    }
+
+    /* 全画面表示（フルスクリーンモーダル）モード */
+    .preview-panel.fullscreen-mode {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 9999;
+      border-radius: 0;
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.85);
+      justify-content: center;
+    }
+
+    .preview-panel.fullscreen-mode #calendar-container {
+      max-width: 95vw;
+      max-height: 90vh;
+      aspect-ratio: 1.414 / 1;
+      box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    }
+
+    .preview-panel.fullscreen-mode .preview-actions {
+      position: absolute;
+      top: 1rem;
+      right: 1.5rem;
+      width: auto;
+      z-index: 10000;
+    }
+
     /* カレンダー本体 (A4横サイズアスペクト比基準) */
     #calendar-container {
       width: 100%;
       max-width: 1100px;
-      aspect-ratio: 1.414 / 1; /* A4横比率 */
+      aspect-ratio: 1.414 / 1;
       background: var(--cal-bg);
       padding: 2.5rem;
       border-radius: 8px;
@@ -180,6 +266,7 @@
       justify-content: space-between;
       overflow: hidden;
       font-family: var(--font-family);
+      transition: all 0.3s ease;
     }
 
     /* 背景画像用レイヤー */
@@ -188,7 +275,7 @@
       top: 0; left: 0; right: 0; bottom: 0;
       background-size: cover;
       background-position: center;
-      opacity: 0.3; /* 初期透明度 */
+      opacity: 0.3;
       z-index: 1;
       pointer-events: none;
     }
@@ -322,14 +409,20 @@
     @media (max-width: 1024px) {
       .main-container {
         flex-direction: column;
-        height: auto;
+        padding: 0.8rem;
       }
       .controls-panel {
         width: 100%;
+        max-height: none;
+      }
+      .controls-panel.collapsed {
+        margin-left: 0;
+        display: none;
       }
       #calendar-container {
         aspect-ratio: auto;
-        min-height: 500px;
+        min-height: 480px;
+        padding: 1.2rem;
       }
     }
   </style>
@@ -338,11 +431,14 @@
 
   <header>
     <h1>📅 My カレンダーメーカー</h1>
+    <button class="toggle-panel-btn" id="toggle-controls-btn">
+      <span id="toggle-icon">◀</span> <span id="toggle-text">設定を閉じる</span>
+    </button>
   </header>
 
   <div class="main-container">
     <!-- 設定パネル (左) -->
-    <div class="controls-panel">
+    <div class="controls-panel" id="controls-panel">
       <h2>カスタマイズ設定</h2>
 
       <div class="form-group">
@@ -385,7 +481,7 @@
       </div>
 
       <div class="form-group">
-        <label for="bg-opacity">背景画像の不透明度 (透かし)</label>
+        <label for="bg-opacity">背景画像の不透明度 (透過度)</label>
         <input type="range" id="bg-opacity" min="0.05" max="1" step="0.05" value="0.3">
       </div>
 
@@ -430,7 +526,12 @@
     </div>
 
     <!-- プレビューパネル (右) -->
-    <div class="preview-panel">
+    <div class="preview-panel" id="preview-panel">
+      <div class="preview-actions">
+        <span style="font-size: 0.85rem; color: #555;" id="preview-status-text">プレビュー</span>
+        <button class="btn btn-fullscreen" id="fullscreen-btn">🔍 全画面プレビュー</button>
+      </div>
+
       <div id="calendar-container" class="theme-modern">
         <div class="bg-image-layer" id="bg-image-layer"></div>
         <div class="calendar-inner">
@@ -462,6 +563,13 @@
     let currentMonth = currentDate.getMonth() + 1;
     const memos = {};
 
+    const controlsPanel = document.getElementById('controls-panel');
+    const previewPanel = document.getElementById('preview-panel');
+    const toggleControlsBtn = document.getElementById('toggle-controls-btn');
+    const toggleIcon = document.getElementById('toggle-icon');
+    const toggleText = document.getElementById('toggle-text');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
+
     const yearSelect = document.getElementById('year-select');
     const monthSelect = document.getElementById('month-select');
     const templateSelect = document.getElementById('template-select');
@@ -491,6 +599,7 @@
     const removeLogoBtn = document.getElementById('remove-logo-btn');
 
     function init() {
+      // 年の生成 (前後5年)
       for (let y = currentYear - 2; y <= currentYear + 5; y++) {
         const option = document.createElement('option');
         option.value = y;
@@ -499,6 +608,7 @@
         yearSelect.appendChild(option);
       }
 
+      // 月の生成
       for (let m = 1; m <= 12; m++) {
         const option = document.createElement('option');
         option.value = m;
@@ -507,7 +617,23 @@
         monthSelect.appendChild(option);
       }
 
-      // イベントリスナー
+      // パネルトグルイベント
+      toggleControlsBtn.addEventListener('click', () => {
+        controlsPanel.classList.toggle('collapsed');
+        const isCollapsed = controlsPanel.classList.contains('collapsed');
+        toggleIcon.textContent = isCollapsed ? '▶' : '◀';
+        toggleText.textContent = isCollapsed ? '設定を開く' : '設定を閉じる';
+      });
+
+      // 全画面プレビュー
+      fullscreenBtn.addEventListener('click', () => {
+        previewPanel.classList.toggle('fullscreen-mode');
+        const isFullscreen = previewPanel.classList.contains('fullscreen-mode');
+        fullscreenBtn.textContent = isFullscreen ? '❌ 全画面を解除' : '🔍 全画面プレビュー';
+        fullscreenBtn.style.backgroundColor = isFullscreen ? '#e74c3c' : '#8e44ad';
+      });
+
+      // 設定変更イベント
       yearSelect.addEventListener('change', (e) => { currentYear = parseInt(e.target.value); renderCalendar(); });
       monthSelect.addEventListener('change', (e) => { currentMonth = parseInt(e.target.value); renderCalendar(); });
       templateSelect.addEventListener('change', (e) => {
@@ -515,7 +641,6 @@
         calendarContainer.classList.add(e.target.value);
       });
 
-      // フォント・色リアルタイム反映
       fontSelect.addEventListener('change', (e) => {
         calendarContainer.style.fontFamily = e.target.value;
       });
@@ -552,7 +677,7 @@
         bgImageInput.value = '';
       });
 
-      // ロゴ画像
+      // ロゴ画像追加
       logoImageInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -611,6 +736,7 @@
       const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
       const prevMonthDays = new Date(currentYear, currentMonth - 1, 0).getDate();
 
+      // 前月分の日付
       for (let i = firstDay - 1; i >= 0; i--) {
         const cell = document.createElement('div');
         cell.className = 'day-cell other-month';
@@ -618,6 +744,7 @@
         calendarGrid.appendChild(cell);
       }
 
+      // 当月分の日付
       for (let day = 1; day <= daysInMonth; day++) {
         const cell = document.createElement('div');
         const dateObj = new Date(currentYear, currentMonth - 1, day);
@@ -638,6 +765,7 @@
         calendarGrid.appendChild(cell);
       }
 
+      // 翌月分の日付
       const totalCells = firstDay + daysInMonth;
       const nextDays = totalCells > 35 ? 42 - totalCells : 35 - totalCells;
       for (let i = 1; i <= nextDays; i++) {
